@@ -1,0 +1,148 @@
+#!/usr/bin/env node
+
+/**
+ * Module dependencies.
+ */
+
+var app = require('../app');
+var debug = require('debug')('websocket-backend:server');
+var http = require('http');
+
+
+var stockData = require('../data/data.json')
+
+Array.prototype.max = function() {
+  return Math.max.apply(null, this);
+};
+
+Array.prototype.min = function() {
+return Math.min.apply(null, this);
+};
+
+
+setInterval(() => {
+  stockData.forEach((element,index) => {
+      element.current = element.price_2007;
+      element.historical_prices.push(genRand(element.price_2007,1000,2))  
+      element.open = element.historical_prices[0];
+      element.close = element.historical_prices[element.historical_prices.length - 1]
+      element.high = element.historical_prices.max();
+      element.low = element.historical_prices.min();
+  })
+},1000)
+
+/**
+ * Get port from environment and store in Express.
+ */
+
+var port = normalizePort(process.env.PORT || '4000');
+app.set('port', port);
+
+/**
+ * Create HTTP server.
+ */
+
+var server = http.createServer(app);
+// socket imports
+
+const socketIo = require('socket.io') (server, {
+  cors: {
+    origin: '*',
+  }
+});
+
+
+
+const io = socketIo;
+
+/**
+ * Listen on provided port, on all network interfaces.
+ */
+
+io.on('connection', (socket) => {
+  console.log('A user connected');
+  
+  setInterval(() => {
+    socket.emit('stock_data_update', stockData);
+  },2000)
+
+  
+  //an event listener is set up for when a client disconnects.
+  socket.on('disconnect', () => {
+    console.log('A user disconnected');
+  });
+});
+
+
+
+
+server.listen(port);
+server.on('error', onError);
+server.on('listening', onListening);
+
+/**
+ * Normalize a port into a number, string, or false.
+ */
+
+function normalizePort(val) {
+  var port = parseInt(val, 10);
+
+  if (isNaN(port)) {
+    // named pipe
+    return val;
+  }
+
+  if (port >= 0) {
+    // port number
+    return port;
+  }
+
+  return false;
+}
+
+/**
+ * Event listener for HTTP server "error" event.
+ */
+
+function onError(error) {
+  if (error.syscall !== 'listen') {
+    throw error;
+  }
+
+  var bind = typeof port === 'string'
+    ? 'Pipe ' + port
+    : 'Port ' + port;
+
+  // handle specific listen errors with friendly messages
+  switch (error.code) {
+    case 'EACCES':
+      console.error(bind + ' requires elevated privileges');
+      process.exit(1);
+      break;
+    case 'EADDRINUSE':
+      console.error(bind + ' is already in use');
+      process.exit(1);
+      break;
+    default:
+      throw error;
+  }
+}
+
+/**
+ * Event listener for HTTP server "listening" event.
+ */
+
+function onListening() {
+  var addr = server.address();
+  var bind = typeof addr === 'string'
+    ? 'pipe ' + addr
+    : 'port ' + addr.port;
+  debug('Listening on ' + bind);
+}
+
+
+function genRand(min, max, decimalPlaces) {  
+  var rand = Math.random()*(max-min) + min;
+  var power = Math.pow(10, decimalPlaces);
+  return Math.floor(rand*power) / power;
+}
